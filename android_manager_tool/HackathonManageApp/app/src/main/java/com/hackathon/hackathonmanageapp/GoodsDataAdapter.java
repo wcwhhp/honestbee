@@ -1,8 +1,5 @@
 package com.hackathon.hackathonmanageapp;
 
-import android.animation.Animator;
-import android.animation.AnimatorInflater;
-import android.animation.AnimatorSet;
 import android.content.Context;
 import android.graphics.Color;
 import android.net.Uri;
@@ -28,24 +25,27 @@ import com.squareup.picasso.Picasso;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 
-public class GoodsDataAdapter extends RecyclerView.Adapter<GoodsDataAdapter.ViewHolder> implements View.OnClickListener, View.OnLongClickListener {
+public class GoodsDataAdapter extends RecyclerView.Adapter<GoodsDataAdapter.ViewHolder> implements View.OnLongClickListener {
+
+    private int orgCardHeight;
 
     private ArrayList<GetGoodsListResponse.Item> dataModelList;
     private HashMap<String, HashMap<String, Integer>> rawMaps;
-    private HashMap<View, Boolean> isPrices;
-    private HashMap<View, Boolean> isChart;
     private HashMap<View, String> ids;
+    private HashSet<Integer> chgSets;
+    private HashSet<Integer> chartSets;
     private final Context context;
     private UpdatePriceCallback updatePriceCallback;
 
     public GoodsDataAdapter(Context context, UpdatePriceCallback updatePriceCallback){
         this.context = context;
         dataModelList = new ArrayList<>();
-        isPrices = new HashMap<>();
-        isChart = new HashMap<>();
         rawMaps = new HashMap<>();
         ids = new HashMap<>();
+        chgSets = new HashSet<>();
+        chartSets = new HashSet<>();
         this.updatePriceCallback = updatePriceCallback;
     }
 
@@ -53,6 +53,17 @@ public class GoodsDataAdapter extends RecyclerView.Adapter<GoodsDataAdapter.View
     public ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
 
         LinearLayout cardItem = (LinearLayout) LayoutInflater.from(parent.getContext()).inflate(R.layout.layout_card_item, parent, false);
+
+        ChangePriceClickListener changePriceClickListener = new ChangePriceClickListener(parent.getContext(), chgSets);
+
+        CardView cardView = cardItem.findViewById(R.id.card_item_card);
+        cardView.setOnClickListener(changePriceClickListener);
+
+        int w = 0;
+        int h = 0;
+        cardView.measure(w, h);
+        ViewGroup.LayoutParams params = cardView.getLayoutParams();
+        orgCardHeight = params.height;
 
         ViewHolder vh = new ViewHolder(cardItem);
 
@@ -64,14 +75,12 @@ public class GoodsDataAdapter extends RecyclerView.Adapter<GoodsDataAdapter.View
 
         GetGoodsListResponse.Item product = dataModelList.get(position);
 
-        LinearLayout cardItem = holder.cardView;
+        CardView cardView = holder.cardView;
+        cardView.setTag(position);
 
-        CardView cardView = cardItem.findViewById(R.id.card_item_card);
-
-        cardView.setOnClickListener(this);
         cardView.setOnLongClickListener(this);
 
-        ImageView goodsImg = cardItem.findViewById(R.id.card_item_img);
+        ImageView goodsImg = cardView.findViewById(R.id.card_item_img);
         if(product.getImageUrl() == null){
             goodsImg.setImageResource(R.mipmap.ic_launcher);
         }
@@ -79,19 +88,35 @@ public class GoodsDataAdapter extends RecyclerView.Adapter<GoodsDataAdapter.View
             Picasso.get().load(Uri.parse(product.getImageUrl())).into(goodsImg);
         }
 
-        TextView nameTxt = cardItem.findViewById(R.id.card_item_name_txt);
+        if(chgSets.contains(position)){
+            cardView.findViewById(R.id.card_item_chg_price).setVisibility(View.VISIBLE);
+            cardView.findViewById(R.id.card_item_default).setVisibility(View.GONE);
+        }
+        else{
+            cardView.findViewById(R.id.card_item_default).setVisibility(View.VISIBLE);
+            cardView.findViewById(R.id.card_item_chg_price).setVisibility(View.GONE);
+        }
+
+        if(chartSets.contains(position)){
+            showChart(cardView);
+        }
+        else{
+            dismissChart(cardView);
+        }
+
+        TextView nameTxt = cardView.findViewById(R.id.card_item_name_txt);
         nameTxt.setText(product.getName());
 
-        TextView priceTxt = cardItem.findViewById(R.id.card_item_price_txt);
+        TextView priceTxt = cardView.findViewById(R.id.card_item_price_txt);
         priceTxt.setText(product.getPrice());
 
-        TextView chgPriceTxt = cardItem.findViewById(R.id.card_item_chg_price_txt);
+        TextView chgPriceTxt = cardView.findViewById(R.id.card_item_chg_price_txt);
         chgPriceTxt.setText(product.getPrice());
 
         ids.put(cardView, product.getId());
 
-        Button updateButton = cardItem.findViewById(R.id.card_item_chg_price_btn);
-        UpdatePriceClickListener updatePriceClickListener = new UpdatePriceClickListener(product.getId(), cardItem, updatePriceCallback);
+        Button updateButton = cardView.findViewById(R.id.card_item_chg_price_btn);
+        UpdatePriceClickListener updatePriceClickListener = new UpdatePriceClickListener(product.getId(), cardView, updatePriceCallback);
         updateButton.setOnClickListener(updatePriceClickListener);
     }
 
@@ -110,78 +135,45 @@ public class GoodsDataAdapter extends RecyclerView.Adapter<GoodsDataAdapter.View
     }
 
     @Override
-    public void onClick(final View view) {
+    public boolean onLongClick(View view) {
 
-        AnimatorSet anim1 = (AnimatorSet) AnimatorInflater.loadAnimator(context, R.animator.card_flip_right_out);
-        AnimatorSet anim2 = (AnimatorSet) AnimatorInflater.loadAnimator(context, R.animator.card_flip_right_in);
-        AnimatorSet s = new AnimatorSet();
-
-        anim1.setTarget(view.findViewById(R.id.card_item_card));
-        anim2.setTarget(view.findViewById(R.id.card_item_card));
-
-        s.play(anim1).before(anim2);
-        s.addListener(new Animator.AnimatorListener() {
-            @Override
-            public void onAnimationStart(Animator animator) {
-                if(isPrices.get(view) != null && isPrices.get(view)){
-                    view.findViewById(R.id.card_item_chg_price).setVisibility(View.GONE);
-                }
-                else{
-                    view.findViewById(R.id.card_item_default).setVisibility(View.GONE);
-                }
-            }
-
-            @Override
-            public void onAnimationEnd(Animator animator) {
-                if(isPrices.get(view) != null && isPrices.get(view)){
-                    view.findViewById(R.id.card_item_default).setVisibility(View.VISIBLE);
-                    isPrices.put(view, false);
-                }
-                else{
-                    view.findViewById(R.id.card_item_chg_price).setVisibility(View.VISIBLE);
-                    isPrices.put(view, true);
-                }
-
-            }
-
-            @Override
-            public void onAnimationCancel(Animator animator) {}
-
-            @Override
-            public void onAnimationRepeat(Animator animator) {}
-        });
-
-        s.start();
-    }
-
-    @Override
-    public boolean onLongClick(final View view) {
-
-        PieChart pieChart = view.findViewById(R.id.card_item_piechart);
-        int width = 0;
-        int height = 0;
-        view.measure(width, height);
-        ViewGroup.LayoutParams params = view.getLayoutParams();
-
-        if(isChart.get(view) != null && isChart.get(view)){
-            pieChart.setVisibility(View.GONE);
-            params.height = params.height/2;
-            isChart.put(view, false);
+        if(chartSets.contains(view.getTag())){
+            dismissChart(view);
+            chartSets.remove(view.getTag());
         }
         else{
-            pieChart.setVisibility(View.VISIBLE);
-            params.height = params.height*2;
-            isChart.put(view, true);
-
-            view.setLayoutParams(params);
-            view.postInvalidate();
-
-            String id = ids.get(view);
-            setPieChart(pieChart, id);
+            chartSets.add((Integer) view.getTag());
+            showChart(view);
         }
 
-        this.notifyDataSetChanged();
         return true;
+    }
+
+    private void showChart(View view){
+
+        PieChart pieChart = view.findViewById(R.id.card_item_piechart);
+        pieChart.setVisibility(View.VISIBLE);
+
+        ViewGroup.LayoutParams params = view.getLayoutParams();
+
+        params.height = orgCardHeight*2;
+        chartSets.add((Integer) view.getTag());
+
+        view.setLayoutParams(params);
+        view.postInvalidate();
+
+        setPieChart(pieChart, dataModelList.get((Integer) view.getTag()).getId());
+    }
+
+    private void dismissChart(View view){
+
+        PieChart pieChart = view.findViewById(R.id.card_item_piechart);
+        ViewGroup.LayoutParams params = view.getLayoutParams();
+
+        pieChart.setVisibility(View.GONE);
+        params.height = orgCardHeight;
+        view.setLayoutParams(params);
+        view.postInvalidate();
     }
 
     private void setPieChart(PieChart pieChart, String id){
@@ -244,11 +236,12 @@ public class GoodsDataAdapter extends RecyclerView.Adapter<GoodsDataAdapter.View
 
     public class ViewHolder extends RecyclerView.ViewHolder{
 
-        LinearLayout cardView;
+        CardView cardView;
 
         public ViewHolder(LinearLayout itemView) {
             super(itemView);
-            this.cardView = itemView;
+            this.cardView = itemView.findViewById(R.id.card_item_card);
+            this.cardView.setTag(false);
         }
     }
 

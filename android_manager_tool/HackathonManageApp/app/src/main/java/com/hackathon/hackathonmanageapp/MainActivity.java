@@ -14,21 +14,16 @@ import java.util.ArrayList;
 public class MainActivity extends AppCompatActivity implements UpdatePriceCallback {
 
     private RecyclerView goodsListView;
-
-    private BeeDataApiUtils beeDataApiUtils;
     private GoodsDataAdapter adapter;
 
-    GoodsDataAsyncTask task;
+    private GoodsDataAsyncTask task;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        beeDataApiUtils = new BeeDataApiUtils();
-
         goodsListView = findViewById(R.id.main_page_recycler);
-        goodsListView.setHasFixedSize(true);
 
         LinearLayoutManager linearLayoutManager = new LinearLayoutManager(this);
         goodsListView.setLayoutManager(linearLayoutManager);
@@ -41,7 +36,6 @@ public class MainActivity extends AppCompatActivity implements UpdatePriceCallba
     @Override
     protected void onResume() {
         super.onResume();
-//        beeDataApiUtils.queryQBeeGoodsDatas(adapter);
 
         RawEntryDataAsyncTask rawEntryDataAsyncTask = new RawEntryDataAsyncTask(adapter);
         rawEntryDataAsyncTask.execute((Void) null);
