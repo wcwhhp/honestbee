@@ -14,44 +14,107 @@ let listener = function(event) {
         price = getSelectionText();
 
         console.log("價錢", price);
-        let getUrl = location.href
+        let getUrl = location.href;
         console.log("getUrl", getUrl);
-        let getIp, itemId;
+        let getIp, itemId, beePrice, map;
         $.getJSON('https://ipapi.co/json/')
-        .then((data) => {
-            getIp = data.ip;
-            console.log(`查水表: ${data.ip}`);
-            return $.getJSON("https://9f3ijn5rh4.execute-api.us-west-2.amazonaws.com/hb/product/list");
-        })
-        .then(data =>
-        {
-            for(let i=0; i<data.Items.length; i++)
+            .then((data) =>
             {
-                if(item == data.Items[i].name)
+                getIp = data.ip;
+                console.log(`client ip: ${data.ip}`);
+                return $.getJSON("https://9f3ijn5rh4.execute-api.us-west-2.amazonaws.com/hb/product/list");
+            })
+            .then(data =>
+            {
+                for (let i = 0; i < data.Items.length; i++)
                 {
-                    itemId = data.Items[i].id;
-                    break;
+                    if (item == data.Items[i].name)
+                    {
+                        itemId = data.Items[i].id;
+                        break;
+                    }
+                    // console.log(data.Items[i].name);
                 }
-                // console.log(data.Items[i].name);
-            }
-            console.log('itemId',itemId);
-            return $.getJSON(`https://9f3ijn5rh4.execute-api.us-west-2.amazonaws.com/hb/product/${itemId}/detail`);
-        })
-        .then(data =>
-        {
-            console.log(data.Items[0]);
-        })
-            
+                console.log('itemId', itemId);
+                return $.getJSON(`https://9f3ijn5rh4.execute-api.us-west-2.amazonaws.com/hb/product/${itemId}/detail`);
+            })
+            .then(data =>
+            {
+                beePrice = data.Items[0].price;
+                console.log(`honestbee的${item}價格: ${beePrice}`);
+                return $.ajax({
+                    type: "POST",
+                    url: 'https://9f3ijn5rh4.execute-api.us-west-2.amazonaws.com/hb/product/add/competitor',
+                    data: JSON.stringify({
+                        "id": itemId, // product id
+                        "source": getUrl, 
+                        "price": price
+                    }),
+                    dataType: "json",
+                    contentType: 'application/json',
+                })
+                // return $.post('https://9f3ijn5rh4.execute-api.us-west-2.amazonaws.com/hb/product/add/competitor', {
+                //     "id": itemId, // product id
+                //     "source": getUrl, 
+                //     "price": price
+                // })
+            })
+            .then(data => 
+            {
+                // send price
+                console.log(`product/add/competitor response: ${data}`);
+                let lat = 22.00;
+                let lon = 13.00;
+                return [lat, lon];
+            })
+            .then(data => 
+            {
+                console.log(data);
+                return $.getJSON(`https://9f3ijn5rh4.execute-api.us-west-2.amazonaws.com/hb/marketing/${itemId}?latitude=${data[0]}&longitude=${data[1]}`)
+            })
+            .then(data => 
+            {
+                map = data.Items[0].address;
+                console.log(`離你最近的地址: ${map}`);
 
-            // pop up div
-            // let text = `<p>test1</p><p>test2</p><p>test3</p><button id="close_btn">關掉啦</button>`;
-            // let style = `position: fixed; border: 1px solid #3c3c3c; background-color: #FFE4C4; padding: 15px; top: ${event.clientY}px; left: ${event.clientX}px`
-            // let popupElement = `<div id="popup-msg" style="${style}">${text}</div>`
-            // $('body').parent().append(popupElement);
-            // $(document).on("click", "#close_btn", function(){
-            //     $('#popup-msg').remove();
-            // })
-            
+                let text = `<p1>honestbee的${item}價格: $${beePrice}</p1><p>離你最近的店家地址: ${map}</p><br />訂閱此商品以便獲得更多資訊<br />email: <input id="get_email" placeholder="your email address" name="email"><br />phone: <input id="get_phone" placeholder="your phone number" name="phone"><br /><button id="subscribe">SUBSCRIBE</button><button id = "x" style="position: absolute;background: red;color: white;top: -10px;right: -10px;">X</button>`;
+                let style = `position: fixed; border: 1px solid #3c3c3c; background-color: #FFE4C4; padding: 15px; top: ${event.clientY}px; left: ${event.clientX}px; z-index: 99999999`
+                let popupElement = `<div id="popup-msg" style="${style}">${text}</div>`
+                $('body').append(popupElement);
+                $(document).on("click", "#x", function(){
+                    $('#popup-msg').remove();
+                })
+                $(document).on("click", "#subscribe", function(){
+                    let email = $("#get_email").val();
+                    let phone = $("#get_phone").val();
+                    console.log(email);
+                    console.log(phone);
+                    
+                    $.ajax({
+                        type: "POST",
+                        url: 'https://9f3ijn5rh4.execute-api.us-west-2.amazonaws.com/hb/product/subscribe',
+                        data: JSON.stringify({
+                            "id": itemId,
+                            "subscriber": email, // email type
+                            "phone": phone, // phone number
+                            "status": "1"
+                        }),
+                        dataType: "json",
+                        contentType: 'application/json',
+                    })
+                    .then(data => 
+                    {
+                        console.log(data);
+                    })
+                });
+            })
+            .catch(err => 
+            {
+                console.log(err);
+            })
+
+
+                     
         
         // 丟api計算，顯示結果
         
